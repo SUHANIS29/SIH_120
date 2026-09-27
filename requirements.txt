@@ -8,7 +8,7 @@ matplotlib==3.8.2
 plotly==5.18.0
 scipy==1.11.4
 fastapi==0.103.0
-uvicorn==0.23.2
+uvicorn==0.30.6
 pydantic==2.3.0
 python-multipart==0.0.20
 pymongo==4.5.0
