@@ -742,8 +742,7 @@
     </div>
 
     <!-- Loading Overlay -->
-    <div id="loadingOverlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; display: flex; align-items: center; justify-content: center;">
-        <div style="background: white; padding: 40px; border-radius: 10px; text-align: center;">
+   <div id="loadingOverlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center;">    <div style="background: white; padding: 40px; border-radius: 10px; text-align: center;">
             <div class="spinner"></div>
             <p id="loadingText" style="margin-top: 20px; color: #333;">Processing...</p>
         </div>
@@ -1118,38 +1117,169 @@
             } catch (error) { target.innerHTML = `<div class="alert-box error">Unable to load statistics: ${error.message}</div>`; }
         }
 
-        async function trainModels() {
-            showLoading('Training AI models (this may take a minute)...');
-            updateStatus('statusModels', 'online', 'Models: Training');
+       async function trainModels() {
+    showLoading('Training AI models (this may take a minute)...');
+    updateStatus('statusModels', 'online', 'Models: Training');
+    
+    try {
+        const response = await fetch(`${API_URL}/models/train`, { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            let html = '<div class="alert-box success">';
+            html += '<h3>✓ Models Trained Successfully!</h3>';
+            html += '<table class="results-table">';
             
-            try {
-                const response = await fetch(`${API_URL}/models/train`, { method: 'POST' });
-                const data = await response.json();
-                
-                if (data.success) {
-                    let html = '<div class="alert-box success">';
-                    html += '<h3>✓ Models Trained Successfully!</h3>';
-                    html += '<table class="results-table">';
-                    
-                    Object.entries(data.training.results).forEach(([name, metrics]) => {
-                        html += `<tr><td>${name}</td><td>`;
-                        Object.entries(metrics).forEach(([k, v]) => {
-                            html += `${k}: ${v}<br>`;
-                        });
-                        html += `</td></tr>`;
-                    });
-                    
-                    html += '</table></div>';
-                    document.getElementById('trainingStatus').innerHTML = html;
-                    updateStatus('statusModels', 'online', 'Models: Ready');
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-                updateStatus('statusModels', 'error', 'Models: Error');
-            } finally {
-                hideLoading();
-            }
+            Object.entries(data.training.results).forEach(([name, metrics]) => {
+                html += `<tr><td>${name}</td><td>`;
+                Object.entries(metrics).forEach(([k, v]) => {
+                    html += `${k}: ${v}<br>`;
+                });
+                html += `</td></tr>`;
+            });
+            
+            html += '</table></div>';
+            document.getElementById('trainingStatus').innerHTML = html;
+            updateStatus('statusModels', 'online', 'Models: Ready');
         }
+    } catch (error) {
+        alert('Error: ' + error.message);
+        updateStatus('statusModels', 'error', 'Models: Error');
+    } finally {
+        hideLoading();
+    }
+}
+
+        async function waitForTrainingCompletion() {
+
+    return new Promise((resolve, reject) => {
+
+        const checkStatus = async () => {
+
+            try {
+
+                const response = await fetch(
+                    `${API_URL}/models/status`
+                );
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        data.detail || 'Unable to check training status'
+                    );
+                }
+
+                const training = data.training;
+
+                // Training is still running
+                if (
+                    training.status === 'starting' ||
+                    training.status === 'running'
+                ) {
+
+                    document.getElementById('trainingStatus').innerHTML =
+                        `<div class="alert-box info">
+                            <h3>⏳ Training AI Models...</h3>
+                            <p>The models are currently being trained.</p>
+                            <p>Please wait...</p>
+                        </div>`;
+
+                    updateStatus(
+                        'statusModels',
+                        'online',
+                        'Models: Training'
+                    );
+
+                    setTimeout(checkStatus, 2000);
+
+                    return;
+                }
+
+                // Training completed
+                if (training.status === 'completed') {
+
+                    let html =
+                        `<div class="alert-box success">
+                            <h3>✓ Models Trained Successfully!</h3>
+                            <table class="results-table">`;
+
+                    if (training.results) {
+
+                        Object.entries(training.results).forEach(
+                            ([name, metrics]) => {
+
+                                html += `<tr>
+                                    <td>${name}</td>
+                                    <td>`;
+
+                                if (
+                                    metrics &&
+                                    typeof metrics === 'object'
+                                ) {
+
+                                    Object.entries(metrics).forEach(
+                                        ([key, value]) => {
+
+                                            html +=
+                                                `${key}: ${value}<br>`;
+                                        }
+                                    );
+
+                                } else {
+
+                                    html += `${metrics}`;
+                                }
+
+                                html += `</td></tr>`;
+                            }
+                        );
+                    }
+
+                    html +=
+                        `</table>
+                        </div>`;
+
+                    document.getElementById(
+                        'trainingStatus'
+                    ).innerHTML = html;
+
+                    updateStatus(
+                        'statusModels',
+                        'online',
+                        'Models: Ready'
+                    );
+
+                    resolve();
+
+                    return;
+                }
+
+                // Training failed
+                if (training.status === 'failed') {
+
+                    reject(
+                        new Error(
+                            training.error ||
+                            'Model training failed'
+                        )
+                    );
+
+                    return;
+                }
+
+                // Unknown state — check again
+                setTimeout(checkStatus, 2000);
+
+            } catch (error) {
+
+                reject(error);
+            }
+        };
+
+        checkStatus();
+    });
+}
 
         async function retrainWithFeedback() {
             showLoading('Retraining with reviewed feedback...');
