@@ -520,27 +520,139 @@ async def data_statistics(filename: str = 'synthetic_data.csv'):
 # ============================================================================
 
 @app.post("/api/models/train")
-async def train_models(filename: str = 'synthetic_data.csv'):
-    """Train all AI models on dataset"""
+def run_model_training(filename: str):
+    """Run model training in the background."""
+    global training_state
+
     try:
+        training_state["status"] = "running"
+        training_state["results"] = None
+        training_state["error"] = None
+
         filepath = os.path.join('data', filename)
+
         if not os.path.exists(filepath):
-            raise HTTPException(status_code=404, detail="Dataset not found")
-        
+            raise FileNotFoundError(f"Dataset not found: {filepath}")
+
+        print(f"Loading dataset: {filepath}")
         df = pd.read_csv(filepath)
+
+        print("Starting AI model training...")
         results = model_manager.train_all(df)
+
         model_manager.save_all()
-        
-        return {
-            "success": True,
-            "training": {
-                "models_trained": list(results.keys()),
-                "results": results,
-                "models_saved": True
-            }
-        }
+
+        training_state["status"] = "completed"
+        training_state["results"] = results
+
+        print("AI model training completed successfully.")
+
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        training_state["status"] = "failed"
+        training_state["error"] = str(e)
+
+        print(f"Model training failed: {e}")
+
+
+@app.post("/api/models/train")
+# async def train_models(
+#     background_tasks: BackgroundTasks,
+#     filename: str = "synthetic_data.csv"
+# ):
+#     """Start model training in the background."""
+
+#     global training_state
+
+#     if training_state["status"] in ["starting", "running"]:
+#         return {
+#             "success": False,
+#             "status": "running",
+#             "message": "Model training is already in progress."
+#         }
+
+#     training_state = {
+#         "status": "starting",
+#         "results": None,
+#         "error": None
+#     }
+
+#     background_tasks.add_task(run_model_training, filename)
+
+#     return {
+#         "success": True,
+#         "status": "started",
+#         "message": "Model training started in the background."
+#     }
+async function trainModels() {
+    showLoading('Training AI models (this may take a minute)...');
+    updateStatus('statusModels', 'online', 'Models: Training');
+
+    try {
+        const response = await fetch(`${API_URL}/models/train`, {
+            method: 'POST'
+        });
+
+        const text = await response.text();
+
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            throw new Error(
+                `Server returned an invalid response (${response.status}).`
+            );
+        }
+
+        if (!response.ok) {
+            throw new Error(data.detail || data.message || 'Training request failed');
+        }
+
+        if (!data.success) {
+            throw new Error(data.message || 'Training could not be started');
+        }
+
+        document.getElementById('trainingStatus').innerHTML =
+            `<div class="alert-box">` +
+            `<h3>⏳ Training Started</h3>` +
+            `<p>AI models are being trained in the background. Please wait...</p>` +
+            `</div>`;
+
+        await waitForTrainingCompletion();
+
+    } catch (error) {
+        document.getElementById('trainingStatus').innerHTML =
+            `<div class="alert-box error">` +
+            `<h3>❌ Training Error</h3>` +
+            `<p>${error.message}</p>` +
+            `</div>`;
+
+        updateStatus('statusModels', 'error', 'Models: Error');
+
+    } finally {
+        hideLoading();
+    }
+}
+# async def train_models(filename: str = 'synthetic_data.csv'):
+#     """Train all AI models on dataset"""
+#     try:
+#         filepath = os.path.join('data', filename)
+#         if not os.path.exists(filepath):
+#             raise HTTPException(status_code=404, detail="Dataset not found")
+        
+#         df = pd.read_csv(filepath)
+#         results = model_manager.train_all(df)
+#         model_manager.save_all()
+        
+#         return {
+#             "success": True,
+#             "training": {
+#                 "models_trained": list(results.keys()),
+#                 "results": results,
+#                 "models_saved": True
+#             }
+#         }
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.get("/api/models/status")
