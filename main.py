@@ -611,11 +611,11 @@ async function trainModels() {
             throw new Error(data.message || 'Training could not be started');
         }
 
-        document.getElementById('trainingStatus').innerHTML =
-            `<div class="alert-box">` +
-            `<h3>⏳ Training Started</h3>` +
-            `<p>AI models are being trained in the background. Please wait...</p>` +
-            `</div>`;
+        # document.getElementById('trainingStatus').innerHTML =
+        #     `<div class="alert-box">` +
+        #     `<h3>⏳ Training Started</h3>` +
+        #     `<p>AI models are being trained in the background. Please wait...</p>` +
+        #     `</div>`;
 
         await waitForTrainingCompletion();
 
