@@ -3,7 +3,7 @@ FastAPI Backend for SIH26120 Digital Twin
 Provides REST API for well simulation, optimization, and dashboarding
 """
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -37,6 +37,12 @@ digital_twin = IntegratedDigitalTwin()
 model_manager = ModelManager()
 optimizer = SimplifiedOptimizer()
 wells_data = {}
+# Model training status
+training_state = {
+    "status": "idle",
+    "results": None,
+    "error": None
+}
 
 
 # Pydantic models for request/response
